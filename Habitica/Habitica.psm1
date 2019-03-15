@@ -330,6 +330,9 @@ Function Get-HabiticaTask {
         .PARAMETER ID
             Used with Scope value of Group or Challenge for the full ID of the group or challenge to return
 
+        .PARAMETER Tag
+            A single UUID or name of a tag to retrieve tasks associated
+
         .EXAMPLE
             Get-HabiticaTask
             Returns all tasks for the user
@@ -341,6 +344,10 @@ Function Get-HabiticaTask {
         .EXAMPLE
             Get-HabitiaTask -Scope Challenge -ID '11111111-2222-3333-4444-555555555555'
             Returns all tasks for the specified challenge
+
+        .EXAMPLE
+            Get-HabiticaTask -Tag 'work'
+            Returns all tasks for the user that have the tag "work"
 
         .LINK
             https://habitica.com/apidoc/#api-Task-GetUserTasks
@@ -357,7 +364,8 @@ Function Get-HabiticaTask {
         $taskId,
         [ValidateSet('user','group','challenge','party')]
         $Scope = 'user',
-        $ID #Party or challenge ID. If not provided, will use current party ID
+        $ID, #Party or challenge ID. If not provided, will use current party ID
+        $Tag
     )
     $parameters = ''
     if ($Type) {
@@ -381,14 +389,27 @@ Function Get-HabiticaTask {
         Default {}
     }
     if ($taskID) {
+        #If a specific Task UUID was provided, retrieve only that task
         $Uri = "$HabiticaBaseURI/tasks/$TaskID"
     }
+
     #If a name was specified, return only tasks that contain that name
     if ($Name) {
-        Return Invoke-RestMethod -Uri $Uri -Headers $HabiticaHeader -Method GET | Select-Object -ExpandProperty Data | Where-Object {$_.text -like "*$name*"}
+        $Result = Invoke-RestMethod -Uri $Uri -Headers $HabiticaHeader -Method GET | Select-Object -ExpandProperty Data | Where-Object {$_.text -like "*$name*"}
     } Else {
-        Return Invoke-RestMethod -Uri $Uri -Headers $HabiticaHeader -Method GET | Select-Object -ExpandProperty Data
+        $Result = Invoke-RestMethod -Uri $Uri -Headers $HabiticaHeader -Method GET | Select-Object -ExpandProperty Data
     }
+
+    if ($Tag) {
+        #Ensure it matches UUID format or look up the UUID
+        if ($Tag -notmatch '\w\w\w\w\w\w\w\w-\w\w\w\w-\w\w\w\w-\w\w\w\w-\w\w\w\w\w\w\w\w\w\w\w\w') {
+            Write-Verbose "Not a valid UUID.  Looking up the UUID based on name"
+            $TagUUID += (Get-HabiticaTag $Tag | Select-Object -ExpandProperty id)
+        } else {$TagUUID += $Tag}
+        $Result = $Result | Where-Object {$_.tags -contains $TagUUID}
+    }
+
+    Return $Result
 }
 
 Function New-HabiticaTask {
