@@ -1506,6 +1506,167 @@ Function Remove-HabiticaQuestQueueEntry {
     for ($i=1; $i -le $QuestQueue.count; $i++) {$QuestQueue[$i]}
 }
 
+Function Skip-HabiticaQuestQueueEntry {
+    <#
+        .SYNOPSIS
+            Skips the next entry of the QuestQueue and saves the remaining entries
+
+        .Description
+            Used if a player will not be starting the next quest entry and needs to be skipped
+
+        .PARAMETER QuestQueue
+            Variable containing the quest queue to use or can use Get-HabiticaQuestQueue
+
+        .EXAMPLE
+            Skip-HabiticaQuestQueueEntry
+    #>
+    [CmdletBinding()]
+    param (
+        $QuestQueue = (Get-HabiticaQuestQueue)
+    )
+    $QuestQueue = Get-HabiticaQuestQueue
+    $QuestQueue = Remove-HabiticaQuestQueueEntry -QuestQueue $QuestQueue
+    Save-HabiticaQuestQueue -QuestQueue $QuestQueue
+}
+
+Function Connect-Discord {
+    <#
+        .SYNOPSIS
+            Sets variables needed for Discord Webhook usage
+
+        .DESCRIPTION
+            Used to configure a Discord Webhook connection for any functions that can post to a channel
+            To get the Webhook URL if you have appropriate Discord permissions:
+                Right click on a Discord channel, select Edit Channel, Webhooks, Create Webook
+            When prompted, but the URL into the Password field of the credential prompt
+
+        .PARAMETER Save
+            Webook URL will be saved to a file.
+            By default, will be saved to the same folder as the Powershell profile with a name of Discord- followed by the computer name unless provided with the Path parameter
+            File is saved in XML format.
+            If saved on Windows, the Webhook URL in the file can only be read by the same user on the same computer.  If accessed by a different user or copied to another device, it will not be readable
+            If using Powershell Core on Linux or MacOS, saving encrypted text to file is not available and will be saved as plain text
+
+        .PARAMETER Path
+            The full file path including filename to save credentials to or to load saved credentials from.
+            If not provided, the default path is the Powershell Profile folder and file name Discord-'ComputerName'.xml
+
+        .EXAMPLE
+            Connect-Discord
+            If saved Webhook exist, they will be loaded.
+            If no saved Webhook exist, a prompt for the URL will appear
+
+        .EXAMPLE
+            Connect-Discord -Save
+            After being prompted for the URL, it will be saved securely to the local computer if on Windows
+
+        .EXAMPLE
+            Connect-Discord -Path C:\Scripts\Discord-Testing.xml
+            Load saved URL from the specified path.  No prompt for a URL
+    #>
+    [CmdletBinding()]
+    param (
+        [switch]$Save,
+        $Path = (Join-Path (Split-Path $profile) "Discord-$env:Computername.xml") #Powershell Profile path folder
+    )
+
+    #If saved file exists, use it
+    if ((Test-Path $Path) -and !$Save) {
+        Write-Verbose "Loading Webhook from $Path"
+        $Credential = Import-Clixml -Path $Path
+    } Else {
+        #If no saved file, prompt for URL
+        Write-Verbose 'No saved file found.  Prompting for Webhook'
+        $Credential = Get-Credential -UserName "Discord" -Message "Enter your full Discord Webhook URL in the Password field.  This can be found by logging into Discord, Right click on a Discord channel, select Edit Channel, Webhooks, Create Webook"
+    }
+
+    if ($Save) {
+        If(!(Test-Path $path))
+        #If the folder or file does not exist, a particular problem if the folder structure does not exist
+        {
+            New-Item -ItemType 'file' -Force -Path $Path
+        }
+        Write-Verbose "Saving credentials to $Path"
+        if ($isLinux -or $isMacOs) {
+            #Unable to save encrypted credentials with non-Windows OS, so converting to plain text
+            $CredentialPlain = [PSCustomObject] @{
+                UserName = $Credential.UserName
+                Password = $Credential.GetNetworkCredential().Password
+            }
+            [PSCustomObject]$Credential = $CredentialPlain
+        }
+        $Credential | Export-Clixml -Path $Path
+    }
+    #Making variable available outside of this function for use with others.
+    #Powershell Core on Linux does not appear to work like Windows does with $Script:DiscordWebhookUrl so changed to Global
+    if ($isLinux -or $isMacOs) {
+        $Global:DiscordWebhookUrl = $Credential.Password
+    } Else {
+        $Global:DiscordWebhookUrl = $Credential.GetNetworkCredential().Password
+    }
+    Return $Global:DiscordWebhookUrl
+}
+
+Function Publish-HabiticaQuestReport {
+    <#
+    .SYNOPSIS
+        Generates a report to the Party chat with stats about the most recent quest
+
+    .DESCRIPTION
+        Generates a Quest Results report showing details about the most recent quest.
+        Originally designed by Habitica user Dispatch009
+        Shows various stats including how long the quest took, who did the most damage, who did the most party buffs and more
+        Will only send the report if one has not been generated since the last quest was completed, allowing it to be ran on a schedule such as every hour without spammming the chat
+
+    .PARAMETER Discord
+        If desired, the same report can be sent to a Discord channel through a Webhook.  See Connect-Discord for details on where to get the URL and save credentials
+
+    .PARAMETER QueueReminder
+        Reminders will be sent to the next user in the queue to being their quest as a private message.
+        To setup a queue, use the following commands
+        $QuestQueue = Add-HabiticaQuestQueueEntry -user 'User1' -quest 'Recidivate, Part 1: The Moonstone Chain'
+        $QuestQueue = Add-HabiticaQuestQueueEntry $QuestQueue -user 'User2' -quest 'Recidivate, Part 3: The Moonstone Chain'
+        Save-HabiticaQuestQueue -QuestQueue $QuestQueue
+
+    .EXAMPLE
+        Publish-HabiticaQuestReport
+        Generates the report using default credentials from Connect-Habitica and publishes them to the chat if it has not already done so
+
+    .EXAMPLE
+        Publish-HabiticaQuestReport -Discord
+        Generates the report and also publishes it to a Discord channel
+    #>
+    [CmdletBinding()]
+    param (
+        [switch]$Discord,
+        [switch]$QueueReminder
+    )
+    Connect-Habitica
+    $PartyChat = Get-HabiticaGroupChat -GroupID 'party'
+    $QuestActions = Get-HabiticaQuestMessage -PartyChat $PartyChat | Get-HabiticaQuestAction
+    $Report = Format-HabiticaQuestReport -QuestActions $QuestActions
+
+    #Checking if the last report was before the last quest completed and if so, will post it
+    if (Test-HabiticaReportNeeded -PartyChat $PartyChat -QuestActions $QuestActions){
+        Publish-HabiticaReport $Report
+        if ($Discord) {
+            if (!$DiscordWebhookUrl) {
+                Write-Verbose "Not already connected to Discord.  Running Connect-Discord to load saved data or prompt for the URL"
+                Connect-Discord
+            }
+            Publish-DiscordReport $Report
+        }
+        if ($QueueReminder) {
+            Write-Verbose 'Processing quest queue'
+            $QuestQueue = Get-HabiticaQuestQueue
+            Send-HabiticaPrivateMessage -UserID $QuestQueue[0].User -Message "Your quest is next.  Please start $($QuestQueue[0].Quest)"
+            if ($Discord) {Publish-DiscordReport "$($QuestQueue[0].user) is up next with quest $($QuestQueue[0].quest)"}
+            $QuestQueue = Remove-HabiticaQuestQueueEntry -QuestQueue $QuestQueue
+            Save-HabiticaQuestQueue -QuestQueue $QuestQueue
+        }
+    }
+}
+
 New-Alias -Name Get-HabiticaPartyChat -Value Get-HabiticaGroupChat
 New-Alias -Name Get-HabiticaParty -Value Get-HabiticaGroup
 Export-ModuleMember -Alias * -Function *
