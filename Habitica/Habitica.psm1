@@ -1133,6 +1133,9 @@ function Format-HabiticaQuestReport {
 
         $Actions = Get-HabiticaTopUser ($QuestActions | Where-Object {$_.action -eq 'casts'})
         $Report += Get-HabiticaAward -HabiticaFormat -Title 'Most Supportive' -Action $Actions -ActionName 'Party Buffs'
+
+        #Remove special characters that cause problems in Habitica and Discord
+        $Report = $Report -replace 'ï','i'
         $Report
 }
 
