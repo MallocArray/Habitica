@@ -574,6 +574,9 @@ function Publish-HabiticaReport {
     param (
         $Report
     )
+    #Remove special characters that cause problems in Habitica and Discord
+    $Report = $Report -replace 'ï','i'
+
     $Body = Format-HabiticaReport $Report
     Invoke-RestMethod -Uri "$HabiticaBaseURI/groups/party/chat" -Headers $HabiticaHeader -Method POST -Body $Body
 }
