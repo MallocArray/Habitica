@@ -29,18 +29,27 @@ The -Save option will save these credentials to disk.  Subsequent runs can just 
 The Quest Report will detect when the last quest was completed and if a report has not been generated since then.  If not, it will run the report and post it to the Party Chat.  If desired, Discord webhooks can also be used to post the report to a channel. This report was originally designed by Habitica user Dispatch009
 
 ## Using the Quest Report
-From the Powershell prompt in the folder with the script and run
+From the Powershell prompt, run the following command
 
-`./Habitica-QuestReport.ps1`
+`Publish-HabiticaQuestReport`
+
+This can also be placed into a script file and ran on a regular schedule using Task Scheduler, cron, or other repeating task.
 
 If the Powershell module is not installed, the file "Habitica-QuestResultReport-Standalone.ps1" can be modified with the API User and Token information and ran without the module.
 
+## Quest Pending Notice
+To help keep quests going in parties where not every member may accept or decline the command
+`Publish-HabiticaQuestPendingNotice`
+can be used.  By default it will check to see if a quest is pending and if so, put a message in the party chat, starting a counter.  When the PendingQuestTimer value (24 hours by default) has elapsed, the command will attempt to start the quest if ran with Party or Quest leader credentials, or send a private message to the Party and Quest Leader asking them to start the quest.
+It is best to run this as part of a scheduled script on a repeating basis so the messages go out in a timely manner.
+
 #Powershell command examples
-Various powershell commands are available after installing the module.  Each command has its own help file. Examples
+Various powershell commands are available after installing the module.  Each command has its own help file.
+Examples:
 
 `New-HabiticaTask -Text 'Example Task'`
 
-`New-HabiticaTask -Text 'Hard Task' -Priority 'Hard'`
+`New-HabiticaTask -Text 'Document Function' -Priority 'Hard'`
 
 `Complete-HabiticaTask "Document Functions"`
 
