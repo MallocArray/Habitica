@@ -1476,22 +1476,24 @@ Function Add-HabiticaQuestQueueEntry {
             The name of the Habitica quest for the user to start
 
         .EXAMPLE
+            $QuestQueue = Get-HabiticaQuestQueue
             $QuestQueue = Add-HabiticaQuestQueueEntry $QuestQueue -user 'User1' -quest 'Recidivate, Part 1: The Moonstone Chain'
+            Save-HabiticaQuestQueue -QuestQueue $QuestQueue
     #>
     [CmdletBinding()]
     param (
         [Object[]]$QuestQueue,
         [Parameter(Mandatory=$True)]
-        $User,
+        [string]$User,
         [Parameter(Mandatory=$True)]
-        $Quest
+        [string]$Quest
     )
 
     $QuestQueue += [PSCustomObject] @{
         User = $User
         Quest = $Quest
     }
-    $QuestQueue
+    Return $QuestQueue
 }
 
 Function Remove-HabiticaQuestQueueEntry {
@@ -1509,7 +1511,7 @@ Function Remove-HabiticaQuestQueueEntry {
     param (
         $QuestQueue = (Get-HabiticaQuestQueue)
     )
-    for ($i=1; $i -le $QuestQueue.count; $i++) {$QuestQueue[$i]}
+    for ($i=1; $i -le $QuestQueue.count; $i++) {$QuestQueue | Select-Object -Index $i}
 }
 
 Function Skip-HabiticaQuestQueueEntry {
@@ -1530,7 +1532,6 @@ Function Skip-HabiticaQuestQueueEntry {
     param (
         $QuestQueue = (Get-HabiticaQuestQueue)
     )
-    $QuestQueue = Get-HabiticaQuestQueue
     $QuestQueue = Remove-HabiticaQuestQueueEntry -QuestQueue $QuestQueue
     Save-HabiticaQuestQueue -QuestQueue $QuestQueue
 }

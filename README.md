@@ -43,6 +43,7 @@ To help keep quests going in parties where not every member may accept or declin
 `Publish-HabiticaQuestPendingNotice`
 
 By default it will check to see if a quest is pending and if so, put a message in the party chat, starting a counter.  When the PendingQuestTimer value (24 hours by default) has elapsed, the command will attempt to start the quest if ran with Party or Quest leader credentials, or send a private message to the Party and Quest Leader asking them to start the quest.
+
 It is best to run this as part of a scheduled script on a repeating basis so the messages go out in a timely manner.
 
 ## Powershell command examples
