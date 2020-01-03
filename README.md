@@ -27,6 +27,7 @@ The -Save option will save these credentials to disk.  Subsequent runs can just 
 
 # Quest Report
 The Quest Report will detect when the last quest was completed and if a report has not been generated since then.  If not, it will run the report and post it to the Party Chat.  If desired, Discord webhooks can also be used to post the report to a channel. This report was originally designed by Habitica user Dispatch009
+ <br /> ![alt text](./images/Quest-Results.jpg)
 
 ## Using the Quest Report
 From the Powershell prompt, run the following command
@@ -57,4 +58,3 @@ Examples:
 `Complete-HabiticaTask "Document Functions"`
 
 `Send-HabiticaPrivateMessage -Message 'Hi there!' -UserID (Get-HabiticaGroup -Group 'party').leader.id`
-
