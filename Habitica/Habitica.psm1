@@ -824,6 +824,7 @@ Function Get-HabiticaChallengeTask {
     )
     Return Invoke-RestMethod -Uri "$HabiticaBaseURI/tasks/challenge/$ChallengeID" -Headers $HabiticaHeader -Method GET | Select-Object -ExpandProperty Data
 }
+
 ################################################################################
 # Habitica Custom functions
 ################################################################################
@@ -1259,10 +1260,38 @@ function Publish-HabiticaReport {
         $Report
     )
     #Remove special characters that cause problems in Habitica and Discord
-    $Report = $Report -replace 'ï','i'
+    $Report = Format-HabiticaCharacters -Report $Report
 
     $Body = Format-HabiticaReport $Report
     Invoke-RestMethod -Uri "$HabiticaBaseURI/groups/party/chat" -Headers $HabiticaHeader -Method POST -Body $Body
+}
+
+function Format-HabiticaCharacters {
+    <#
+        .SYNOPSIS
+            Replaces special characters that are not handled properly when sending messages or posts
+
+        .DESCRIPTION
+            Some unicode characters do not pass through to messages correctly when processed by this method.
+            This function replaces the problematics characters with their best aproximations so results do not have odd or missing characters.
+            Some characters include ï
+
+        .PARAMETER Report
+            An array of text to be published.
+
+        .EXAMPLE
+            $Report = Format-HabiticaCharacters -Report $Report
+
+    #>
+    [CmdletBinding()]
+    param (
+        $Report = $Report
+    )
+    $Report = $Report -replace 'ï','i'
+    $Report = $Report -replace '軍',''
+    $Report = $Report -replace '曹',''
+    $Report = $Report -replace 'ø','o'
+    $Report
 }
 
 function Publish-DiscordReport {
@@ -1293,7 +1322,7 @@ function Publish-DiscordReport {
         $DiscordWebhookUrl = $DiscordWebhookUrl
     )
     #Remove special characters that cause problems in Habitica and Discord
-    $Report = $Report -replace 'ï','i'
+    $Report = Format-HabiticaCharacters -Report $Report
 
     $content = Format-DiscordReport $Report
     Invoke-RestMethod -Uri $DiscordWebhookUrl -Method Post -Body $content
@@ -1741,6 +1770,30 @@ Function Publish-HabiticaQuestPendingNotice {
     }
 }
 
+Function Start-HabiticaQuest {
+    <#
+        .SYNOPSIS
+            Starts a pending quest
+
+        .DESCRIPTION
+            Attempts to start a pending quest if the user is the quest owner or part leader. Otherwise, returns an error to variable RestError
+
+        .PARAMETER GroupID
+            The UUID of a group, or common names of 'party' for the user party and 'habitrpg' for tavern are accepted
+            Defaults to 'party'
+
+        .EXAMPLE
+            Start-HabiticaQuest
+
+        .LINK
+            https://habitica.com/apidoc/#api-Quest-ForceQuestStart
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$GroupID='party'
+    )
+    Invoke-RestMethod -Uri "$HabiticaBaseURI/groups/$GroupID/quests/force-start" -Headers $HabiticaHeader -Method POST -ErrorAction Continue
+}
 
 
 New-Alias -Name Get-HabiticaPartyChat -Value Get-HabiticaGroupChat
